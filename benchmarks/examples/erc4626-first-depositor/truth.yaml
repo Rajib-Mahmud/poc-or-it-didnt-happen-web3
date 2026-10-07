@@ -1,0 +1,58 @@
+# Ground truth for the erc4626-first-depositor benchmark.
+# /audit is run on Vault.sol ONLY (MockERC20.sol / Exploit.t.sol are test helpers, not targets).
+
+name: erc4626-first-depositor
+source: custom
+source_ref: "classic ERC-4626 first-depositor / donation share-inflation attack"
+license: MIT
+audit_target: Vault.sol
+assumptions:
+  - "asset is a standard, non-reentrant ERC-20"
+
+severity_scale: "critical | high | medium | low | info"
+
+# The REAL vulnerabilities present. Each matched by the audit = true positive (TP).
+expected:
+  - id: erc4626_first_depositor_inflation
+    severity: high
+    class: accounting/share-inflation
+    root_cause: share_price_manipulation_via_direct_donation
+    invariant: "INV-V-1 (share price cannot be manipulated to steal deposits)"
+    location: "Vault.sol: deposit / previewDeposit / totalAssets"
+    attack_prerequisite: >
+      attacker is the first depositor (totalSupply == 0), can transfer the asset directly to the
+      vault, and a victim deposits afterwards.
+    impact: >
+      victim's deposit rounds to 0 shares; attacker redeems the single inflated share and drains
+      the victim's assets.
+    must_find: true
+
+# Things that LOOK suspicious but are NOT vulnerabilities. Reporting any of these as a
+# vulnerability counts as a FALSE POSITIVE (this is the precision test).
+negative_cases:
+  - id: owner_set_fee_recipient
+    construct: "setFeeRecipient is onlyOwner"
+    why_not_vuln: "properly access-controlled admin config; at most an informational centralization note"
+  - id: rounding_down_favors_vault
+    construct: "previewDeposit / previewRedeem round down (mulDiv)"
+    why_not_vuln: "rounding favors the vault; standard and safe"
+  - id: erc20_external_calls
+    construct: "asset.transfer / asset.transferFrom"
+    why_not_vuln: "standard ERC-20; redeem follows checks-effects-interactions → not reentrancy"
+
+# Scoring
+scoring:
+  tp: "reported finding that matches an expected[] entry (same root cause)"
+  fp: "reported vulnerability not in expected[] (e.g. any negative_cases[] item reported as a vuln)"
+  fn: "an expected[] entry with must_find:true that was missed"
+  precision: "TP / (TP + FP)"
+  recall: "TP / (TP + FN)"
+
+m0_pass_criteria:
+  - "precision >= 0.70"
+  - "erc4626_first_depositor_inflation detected at high or critical"
+  - "PoC path is technically coherent (see Exploit.t.sol)"
+  - "no hallucinated high/critical findings"
+m0_fail_if:
+  - "any hallucinated high/critical finding"
+  - "the inflation bug is missed"

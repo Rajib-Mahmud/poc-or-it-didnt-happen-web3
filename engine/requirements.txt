@@ -1,0 +1,7 @@
+# Core (needed for scoring / reading truth.yaml)
+pyyaml>=6.0
+
+# Optional provider SDKs — install only the one(s) you use. The engine imports them
+# lazily, so the dry-run pipeline works with none of these installed.
+# anthropic>=0.40      # W3SEC_PROVIDER=anthropic   (ANTHROPIC_API_KEY)
+# openai>=1.50         # W3SEC_PROVIDER=openai|codex (OPENAI_API_KEY) and deepseek (OpenAI-compatible)

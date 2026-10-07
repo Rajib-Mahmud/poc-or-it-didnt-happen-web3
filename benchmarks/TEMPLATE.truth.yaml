@@ -1,0 +1,43 @@
+# Ground truth for one benchmark target. /audit output is scored against this.
+# Copy to benchmarks/<name>/truth.yaml and fill in. See examples/erc4626-first-depositor/.
+
+name: <short-slug>
+source: "DeFiHackLabs | Damn Vulnerable DeFi | custom"
+source_ref: "<url to incident writeup or repo path>"
+license: "<e.g. MIT — only ingest licensed sources>"
+audit_target: "<the .sol file /audit is run on>"
+assumptions:
+  - "<e.g. asset is a standard, non-reentrant ERC-20>"
+
+severity_scale: "critical | high | medium | low | info"
+
+# The REAL vulnerabilities present. A reported finding that matches one = true positive.
+expected:
+  - id: <stable_snake_case_id>
+    severity: high
+    class: "<ties to knowledge/taxonomy.md>"
+    root_cause: "<concise root cause>"
+    invariant: "<which invariant breaks, e.g. INV-V-1>"
+    location: "<file.sol: function / :line>"
+    attack_prerequisite: "<what the attacker needs>"
+    impact: "<what is lost>"
+    must_find: true          # true = counts toward recall; missing it is a false negative
+
+# Things that LOOK like bugs but are NOT. Reporting any as a vulnerability = false positive.
+negative_cases:
+  - id: <stable_id>
+    construct: "<the suspicious-looking code>"
+    why_not_vuln: "<why it is safe / intended>"
+
+scoring:
+  tp: "reported finding matching an expected[] entry (same root cause)"
+  fp: "reported vulnerability not in expected[] (incl. any negative_cases[] reported as a vuln)"
+  fn: "an expected[] entry with must_find:true that was missed"
+  precision: "TP / (TP + FP)"
+  recall: "TP / (TP + FN)"
+
+m0_pass_criteria:
+  - "precision >= 0.70"
+  - "known high/critical detected"
+  - "PoC path technically coherent"
+  - "no hallucinated high/critical"

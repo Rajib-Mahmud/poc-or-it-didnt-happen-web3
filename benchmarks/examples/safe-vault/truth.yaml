@@ -1,0 +1,48 @@
+# Ground truth for the safe-vault benchmark (NEGATIVE CONTROL).
+# The code is correctly mitigated. A correct audit reports ZERO vulnerabilities.
+# This is the sharpest false-positive test: the only way to "fail" is to invent a bug.
+# /audit is run on Vault.sol ONLY.
+
+name: safe-vault
+source: custom
+source_ref: "correctly-mitigated ERC-4626-style vault (negative control)"
+license: MIT
+audit_target: Vault.sol
+assumptions:
+  - "asset is a standard, non-reentrant ERC-20 (fee-on-transfer / rebasing out of scope)"
+
+severity_scale: "critical | high | medium | low | info"
+
+# No real vulnerabilities exist.
+expected: []
+
+# Informational observations a good auditor MAY note. Reporting these as INFO is fine;
+# reporting any of them as a vulnerability (low+) is a FALSE POSITIVE.
+informational_allowed:
+  - "centralization: owner sets feeRecipient (and feeRecipient is currently unused)"
+  - "fee-on-transfer / rebasing tokens are not supported (documented assumption)"
+  - "no minSharesOut slippage parameter on deposit/redeem"
+
+# Mitigations present — do NOT report these patterns as bugs (doing so = false positive).
+negative_cases:
+  - id: inflation_mitigated
+    construct: "ERC-4626-style vault"
+    why_not_vuln: "virtual shares/assets offset (VIRTUAL=1e6) + require(shares>0) defeat first-depositor/donation inflation"
+  - id: rounding_down_favors_vault
+    construct: "previewDeposit / previewRedeem use floor division"
+    why_not_vuln: "rounds toward the vault; INV-V-2 holds"
+  - id: no_reentrancy
+    construct: "external ERC-20 calls in deposit/redeem"
+    why_not_vuln: "nonReentrant guard + CEI in redeem; standard ERC-20 assumed"
+  - id: owner_set_fee_recipient
+    construct: "setFeeRecipient is onlyOwner"
+    why_not_vuln: "properly access-controlled"
+
+scoring:
+  correct_output: "zero vulnerability findings (informational items allowed)"
+  fp: "ANY finding at severity low or above"
+
+m0_pass_criteria:
+  - "zero vulnerability findings reported (FP count == 0)"
+m0_fail_if:
+  - "any finding reported at low severity or above"

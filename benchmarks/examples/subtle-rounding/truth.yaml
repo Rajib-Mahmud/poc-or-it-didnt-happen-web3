@@ -1,0 +1,53 @@
+# Ground truth for the subtle-rounding benchmark.
+# Two-sided test: (1) DETECT the subtle rounding-direction bug (recall), AND
+#                 (2) do NOT report the mitigated inflation pattern (precision).
+# /audit is run on Vault.sol ONLY.
+
+name: subtle-rounding
+source: custom
+source_ref: "ERC-4626-style vault with inverted rounding on redemption"
+license: MIT
+audit_target: Vault.sol
+assumptions:
+  - "asset is a standard, non-reentrant ERC-20"
+
+severity_scale: "critical | high | medium | low | info"
+
+# The REAL vulnerability.
+expected:
+  - id: redeem_rounds_up_in_user_favor
+    severity: low               # corrected from medium after blind run 1 (dust-bounded, no profitable drain)
+    class: accounting/rounding
+    root_cause: "previewRedeem uses CEIL division ((n + d - 1)/d), rounding assets UP toward the user"
+    invariant: "INV-V-2 (rounding must favor the vault, never the user)"
+    location: "Vault.sol: previewRedeem"
+    attack_prerequisite: "hold shares; call redeem"
+    impact: >
+      each redemption overpays by up to exactly 1 wei (ceil vs floor). Breaks INV-V-2 and the
+      sum(redeemed) <= deposited invariant, but the excess is dust-bounded (~1 wei/call) and NOT a
+      profitable drain (gas >> 1 wei). A correctness defect — severity LOW.
+    must_find: true
+
+# Do NOT report these as bugs (doing so = false positive).
+negative_cases:
+  - id: inflation_mitigated
+    construct: "ERC-4626-style vault (tempting 'share inflation' finding)"
+    why_not_vuln: "virtual offset (VIRTUAL=1e6) + require(shares>0) defeat inflation — reporting it is a FALSE POSITIVE"
+  - id: deposit_rounds_down_safe
+    construct: "previewDeposit floor division"
+    why_not_vuln: "rounds toward the vault; correct"
+  - id: owner_set_fee_recipient
+    construct: "setFeeRecipient is onlyOwner"
+    why_not_vuln: "properly access-controlled"
+
+scoring:
+  tp: "reporting redeem_rounds_up_in_user_favor"
+  fp: "reporting any negative_cases[] item as a vuln (esp. 'inflation')"
+  fn: "missing the rounding-direction bug"
+  precision: "TP / (TP + FP)"
+  recall: "TP / (TP + FN)"
+
+m0_pass_criteria:
+  - "redeem rounding-direction bug detected (low or medium)"
+  - "inflation NOT reported (precision held against the decoy)"
+  - "no hallucinated high/critical"
